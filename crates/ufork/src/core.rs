@@ -1,5 +1,6 @@
 // uFork virtual CPU core
 
+extern crate alloc;
 use alloc::boxed::Box;
 
 use crate::*;

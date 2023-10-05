@@ -1,8 +1,4 @@
-#![no_std]
-//#![feature(default_alloc_error_handler)]
-//#![feature(alloc_error_handler)]
-
-extern crate alloc;
+#![cfg_attr(feature = "no-std", no_std)]
 
 use ::core::cell::RefCell;
 
@@ -13,17 +9,17 @@ pub mod host;
 pub mod quad;
 
 use crate::any::*;
-use crate::core::*;
+pub use crate::core::*;
 use crate::host::*;
 use crate::quad::*;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(feature = "no-std", not(test)))]
 #[panic_handler]
 fn panic(_: &::core::panic::PanicInfo) -> ! {
-    ::core::arch::wasm32::unreachable()
+    ::core::unreachable!()
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "no-std")]
 #[global_allocator]
 //static ALLOCATOR: lol_alloc::LeakingPageAllocator = lol_alloc::LeakingPageAllocator;
 static ALLOCATOR: lol_alloc::AssumeSingleThreaded<lol_alloc::FreeListAllocator> = unsafe {
@@ -64,26 +60,49 @@ const DIR_RAW: Raw          = 0x8000_0000;  // 1=direct (fixnum), 0=indirect (po
 const OPQ_RAW: Raw          = 0x4000_0000;  // 1=opaque (capability), 0=transparent (navigable)
 const MUT_RAW: Raw          = 0x2000_0000;  // 1=read-write (mutable), 0=read-only (immutable)
 
-#[cfg(target_arch = "wasm32")]
-#[link(wasm_import_module = "capabilities")]
-extern {
-    pub fn host_clock() -> Raw;
-    pub fn host_random(a: Raw, b: Raw) -> Raw;
-    pub fn host_print(base: *const u8, ofs: usize);
-    pub fn host_log(x: Raw);
-    pub fn host_start_timer(delay: Raw, stub: Raw);
-    pub fn host_stop_timer(stub: Raw) -> bool;
-    pub fn host_write(code: Raw) -> Raw;
-    pub fn host_read(stub: Raw) -> Raw;
-    pub fn host_trace(event: Raw);
-    pub fn host(event_stub_or_proxy: Raw) -> Error;
-}
+// #[cfg(target_arch = "wasm32")]
+// #[link(wasm_import_module = "capabilities")]
+// extern {
+//     pub fn host_clock() -> Raw;
+//     pub fn host_random(a: Raw, b: Raw) -> Raw;
+//     pub fn host_print(base: *const u8, ofs: usize);
+//     pub fn host_log(x: Raw);
+//     pub fn host_start_timer(delay: Raw, stub: Raw);
+//     pub fn host_stop_timer(stub: Raw) -> bool;
+//     pub fn host_write(code: Raw) -> Raw;
+//     pub fn host_read(stub: Raw) -> Raw;
+//     pub fn host_trace(event: Raw);
+//     pub fn host(event_stub_or_proxy: Raw) -> Error;
+// }
+
+    pub fn host_clock() -> Raw {
+        0
+    }
+    pub fn host_random(a: Raw, b: Raw) -> Raw {
+        0
+    }
+    pub fn host_print(base: *const u8, ofs: usize) {}
+    pub fn host_log(x: Raw) {}
+    pub fn host_start_timer(delay: Raw, stub: Raw) {}
+    pub fn host_stop_timer(stub: Raw) -> bool {
+        true
+    }
+    pub fn host_write(code: Raw) -> Raw {
+        0
+    }
+    pub fn host_read(stub: Raw) -> Raw {
+        0
+    }
+    pub fn host_trace(event: Raw) {}
+    pub fn host(event_stub_or_proxy: Raw) -> Error {
+        0
+    }
 
 // trace transactional effect(s)
 #[cfg(target_arch = "wasm32")]
 pub fn trace_event(ep: Any, _kp: Any) {
     unsafe {
-        host_trace(ep.raw());
+        // host_trace(ep.raw());
     }
 }
 #[cfg(not(target_arch = "wasm32"))]

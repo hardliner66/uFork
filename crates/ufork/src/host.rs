@@ -9,9 +9,7 @@ pub struct Host {
 impl Host {
     pub fn new() -> Host {
         let core = Core::new();
-        Host {
-            core,
-        }
+        Host { core }
     }
     pub fn run_loop(&mut self, limit: i32) -> Raw {
         self.core.run_loop(limit).raw()
@@ -45,11 +43,17 @@ impl Host {
     pub fn reserve(&mut self) -> Raw {
         self.core.reserve(&Quad::empty_t()).unwrap().raw()
     }
+    pub fn core(&mut self) -> &mut Core {
+        &mut self.core
+    }
     pub fn reserve_stub(&mut self, device: Raw, target: Raw) -> Raw {
         let device_ptr = Any::new(device);
         assert!(device_ptr.is_cap());
         let target_ptr = Any::new(target);
-        self.core.reserve_stub(device_ptr, target_ptr).unwrap().raw()
+        self.core
+            .reserve_stub(device_ptr, target_ptr)
+            .unwrap()
+            .raw()
     }
     pub fn release_stub(&mut self, ptr: Raw) {
         self.core.release_stub(Any::new(ptr))

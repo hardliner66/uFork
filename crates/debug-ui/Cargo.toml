@@ -1,0 +1,17 @@
+[package]
+name = "debug-ui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+egui_memory_editor = { version = "=0.2.5", features = ["serde"] }
+egui_tracing = "0.2.1"
+log = "0.4.20"
+notan = { version = "0.10.0", features = ["serde", "drop_files", "notan_egui", "egui", "text", "save_file"] }
+ufork = { path = "../ufork", default-features = false }
+
+[features]
+default = []
+no-std = ["ufork/no-std"]

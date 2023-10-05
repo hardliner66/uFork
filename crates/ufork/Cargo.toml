@@ -1,0 +1,18 @@
+[package]
+name = "ufork"
+version = "0.1.0"
+authors = ["Dale Schumacher <dalnefre@yahoo.com>"]
+edition = "2021"
+description = "uFork VM in Rust"
+repository = "https://github.com/organix/uFork/tree/main/crates/ufork"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["no-std"]
+no-std = ["lol_alloc"]
+
+[dependencies]
+lol_alloc = { version = "0.3.0", optional = true }     		# a size-efficient allocator crate

@@ -1,27 +1,37 @@
-use egui_memory_editor::MemoryEditor;
+use egui_quad_editor::QuadEditor;
 use notan::draw::*;
 use notan::egui::{self, *};
 use notan::prelude::*;
 use ufork::any::Any;
-use ufork::host::Host;
+use ufork::core::Core;
+
+#[cfg(target_arch = "wasm32")]
+#[panic_handler]
+fn panic(_: &::core::panic::PanicInfo) -> ! {
+    ::core::unreachable!()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[global_allocator]
+//static ALLOCATOR: lol_alloc::LeakingPageAllocator = lol_alloc::LeakingPageAllocator;
+static ALLOCATOR: lol_alloc::AssumeSingleThreaded<lol_alloc::FreeListAllocator> =
+    unsafe { lol_alloc::AssumeSingleThreaded::new(lol_alloc::FreeListAllocator::new()) };
 
 #[derive(AppState)]
 struct State {
-    memory: Vec<u8>,
-    host: Host,
-    mem_editor: MemoryEditor,
+    core: Core,
+    quad_editor: QuadEditor,
 }
 
 impl State {
     fn new() -> Self {
         // Create a memory editor with a variety of ranges, need at least one, but can be as many as you want.
-        let mut mem_editor = MemoryEditor::new()
+        let quad_editor = QuadEditor::new()
             .with_address_range("All", 0..0xFF)
             .with_window_title("Hello Editor!");
         Self {
-            host: Host::new(),
-            memory: vec![0; 0x10000],
-            mem_editor,
+            core: Core::default(),
+            quad_editor,
         }
     }
 }
@@ -52,11 +62,11 @@ fn draw(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut St
             // In your egui rendering simply include the following.
             // The write function is optional, if you don't set it the UI will be in read-only mode.
             let mut is_open = true;
-            state.mem_editor.window_ui_read_only(
+            state.quad_editor.window_ui_read_only(
                 ctx,
                 &mut is_open,
-                &mut state.host.core(),
-                |mem, address| Some(mem.ram(Any::ram(address)).t().raw().try_into().unwrap()),
+                &mut state.core,
+                |mem, address| mem.ram(Any::ram(address)).t().raw().try_into().ok(),
             );
         });
     });

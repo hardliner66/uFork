@@ -4,7 +4,7 @@ use crate::*;
 
 pub trait Device {
     fn handle_event(&mut self, core: &mut Core, ep: Any) -> Result<(), Error>;
-    fn drop_proxy(&mut self, _core: &mut Core, _cap: Any) {}  // default: no-op
+    fn drop_proxy(&mut self, _core: &mut Core, _cap: Any) {} // default: no-op
 }
 
 pub struct NullDevice {}
@@ -18,64 +18,36 @@ impl Device for NullDevice {
         let _event = core.mem(ep);
         //panic!();  // terminate simulator!
         //Err(E_FAIL)  // force failure...
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
 }
 
-pub struct DebugDevice {}
-impl DebugDevice {
-    pub fn new() -> DebugDevice {
-        DebugDevice {}
-    }
-    #[cfg(target_arch = "wasm32")]
-    fn debug_print(&mut self, value: Any) {
-        let raw = value.raw();
-        unsafe {
-            crate::host_log(raw);
+pub struct DebugDevice {
+    pub debug_print: fn(Any),
+}
+impl Default for DebugDevice {
+    fn default() -> Self {
+        Self {
+            debug_print: |_| {},
         }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    fn debug_print(&mut self, value: Any) {
-        // debug output not available...
-        let _ = value.raw();  // place a breakpoint on this assignment
     }
 }
 impl Device for DebugDevice {
     fn handle_event(&mut self, core: &mut Core, ep: Any) -> Result<(), Error> {
         let event = core.mem(ep);
-        let message = event.y();  // message
-        self.debug_print(message);
-        Ok(())  // event handled.
+        let message = event.y(); // message
+        (self.debug_print)(message);
+        Ok(()) // event handled.
     }
 }
 
 pub struct ClockDevice {
-    clock_ticks: Any,
+    pub read_clock: fn() -> Any,
 }
-impl ClockDevice {
-    pub fn new() -> ClockDevice {
-        ClockDevice {
-            clock_ticks: ZERO,
-        }
-    }
-    #[cfg(target_arch = "wasm32")]
-    fn read_clock(&mut self) -> Any {
-        unsafe {
-            let raw = crate::host_clock();
-            let now = Any::fix(raw as isize);
-            self.clock_ticks = now;
-            now
-        }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    fn read_clock(&mut self) -> Any {
-        match self.clock_ticks.fix_num() {
-            Some(t) => {
-                let now = Any::fix(t + 5);  // arbitrary advance on each call
-                self.clock_ticks = now;
-                now
-            }
-            None => ZERO,
+impl Default for ClockDevice {
+    fn default() -> Self {
+        Self {
+            read_clock: || Any::new(0),
         }
     }
 }
@@ -83,50 +55,36 @@ impl Device for ClockDevice {
     fn handle_event(&mut self, core: &mut Core, ep: Any) -> Result<(), Error> {
         let event = core.mem(ep);
         let sponsor = event.t();
-        let cust = event.y();  // cust
-        let now = self.read_clock();
+        let cust = event.y(); // cust
+        let now = (self.read_clock)();
         let evt = core.reserve_event(sponsor, cust, now)?;
         core.event_enqueue(evt);
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
 }
 
-pub struct RandomDevice {}
-impl RandomDevice {
-    pub fn new() -> RandomDevice {
-        RandomDevice {}
-    }
-    #[cfg(target_arch = "wasm32")]
-    fn get_random(&mut self, a: Any, b: Any) -> Any {
-        unsafe {
-            let raw = crate::host_random(a.raw(), b.raw());
-            Any::fix(raw as isize)
+pub struct RandomDevice {
+    pub get_random: fn(Any, Any) -> Any,
+}
+impl Default for RandomDevice {
+    fn default() -> Self {
+        Self {
+            get_random: |_, _| Any::new(0),
         }
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    fn get_random(&mut self, a: Any, b: Any) -> Any {
-        // randomness not available...
-        if b.is_fix() {
-            return b;
-        }
-        if a.is_fix() {
-            return a;
-        }
-        Any::fix(0)
     }
 }
 impl Device for RandomDevice {
     fn handle_event(&mut self, core: &mut Core, ep: Any) -> Result<(), Error> {
         let event = core.mem(ep);
         let sponsor = event.t();
-        let msg = event.y();  // (cust) | (cust size) | (cust a b)
+        let msg = event.y(); // (cust) | (cust size) | (cust a b)
         let cust = core.nth(msg, PLUS_1);
         let a = core.nth(msg, PLUS_2);
         let b = core.nth(msg, PLUS_3);
-        let random = self.get_random(a, b);
+        let random = (self.get_random)(a, b);
         let evt = core.reserve_event(sponsor, cust, random)?;
         core.event_enqueue(evt);
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
 }
 
@@ -158,7 +116,7 @@ impl IoDevice {
     #[cfg(not(target_arch = "wasm32"))]
     fn write(&mut self, code: Any) -> Any {
         // console output not available...
-        let _ = code;  // place a breakpoint on this assignment
+        let _ = code; // place a breakpoint on this assignment
         Any::fix(E_OK as isize)
     }
 
@@ -191,8 +149,9 @@ impl Device for IoDevice {
         let event = core.mem(ep);
         let sponsor = event.t();
         let dev = event.x();
-        let msg = event.y();  // blob | (to_cancel callback) | (to_cancel callback fixnum)
-        if msg.is_cap() {  // blob
+        let msg = event.y(); // blob | (to_cancel callback) | (to_cancel callback fixnum)
+        if msg.is_cap() {
+            // blob
             let buf = core.blob_buffer();
             let base = buf.as_ptr();
             let ptr = core.cap_to_ptr(msg);
@@ -213,29 +172,31 @@ impl Device for IoDevice {
                 return Err(E_NOT_CAP);
             }
             let data = core.nth(msg, PLUS_3);
-            if data == UNDEF {  // (to_cancel callback)
+            if data == UNDEF {
+                // (to_cancel callback)
                 // read request
                 let evt = core.reserve_event(sponsor, callback, UNDEF)?;
                 let stub = core.reserve_stub(dev, evt)?;
                 let char = self.read(stub);
                 if char.is_fix() {
                     // if `read` was synchronous, reply immediately
-                    let result = core.reserve(&Quad::pair_t(char, NIL))?;  // (char)
-                    core.ram_mut(evt).set_y(result);  // msg = result
+                    let result = core.reserve(&Quad::pair_t(char, NIL))?; // (char)
+                    core.ram_mut(evt).set_y(result); // msg = result
                     core.event_enqueue(evt);
                     core.release_stub(stub);
                 }
-            } else if data.is_fix() {  // (to_cancel callback fixnum)
+            } else if data.is_fix() {
+                // (to_cancel callback fixnum)
                 // write request
                 self.write(data);
                 // in the current implementation, `write` is synchronous, so we reply immediately
-                let result = core.reserve(&Quad::pair_t(UNIT, NIL))?;  // (#unit)
+                let result = core.reserve(&Quad::pair_t(UNIT, NIL))?; // (#unit)
                 let evt = core.reserve_event(sponsor, callback, result)?;
                 core.event_enqueue(evt);
             }
         }
         // NOTE: unrecognized messages may be ignored
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
 }
 
@@ -246,73 +207,73 @@ fn u16_msb(nat: usize) -> u8 {
     ((nat >> 8) & 0xFF) as u8
 }
 fn get_u16(core: &Core, ofs: usize) -> usize {
-    assert_eq!(0x82, core.blob_read(ofs + 0));  // +Integer
-    assert_eq!(16, core.blob_read(ofs + 1));  // size = 16 bits
+    assert_eq!(0x82, core.blob_read(ofs + 0)); // +Integer
+    assert_eq!(16, core.blob_read(ofs + 1)); // size = 16 bits
     let lsb = core.blob_read(ofs + 2) as usize;
     let msb = core.blob_read(ofs + 3) as usize;
     (msb << 8) | lsb
 }
 fn set_u16(core: &mut Core, ofs: usize, data: usize) {
-    core.blob_write(ofs + 0, 0x82);  // +Integer
-    core.blob_write(ofs + 1, 16);  // size = 16 bits
+    core.blob_write(ofs + 0, 0x82); // +Integer
+    core.blob_write(ofs + 1, 16); // size = 16 bits
     core.blob_write(ofs + 2, u16_lsb(data));
     core.blob_write(ofs + 3, u16_msb(data));
 }
 fn blob_reserve(core: &mut Core, size: Any) -> Result<Any, Error> {
     let mut need = size.get_fix()? as usize;
     if need > 0xFFFF_FFF0 {
-        return Err(E_BOUNDS);  // ~64K maximum allocation
+        return Err(E_BOUNDS); // ~64K maximum allocation
     }
     if need < 4 {
-        need = 4;  // minimum allocation is 4 octets
+        need = 4; // minimum allocation is 4 octets
     }
-    need += 5;  // adjust for Blob header
-    let mut ofs: usize = 9;  // start after Array header
+    need += 5; // adjust for Blob header
+    let mut ofs: usize = 9; // start after Array header
     while ofs > 0 {
-        assert_eq!(0x8B, core.blob_read(ofs));  // Extension Blob
+        assert_eq!(0x8B, core.blob_read(ofs)); // Extension Blob
         ofs += 1;
-        let next = get_u16(core, ofs);  // `meta` field is offset of next free Blob (or zero)
+        let next = get_u16(core, ofs); // `meta` field is offset of next free Blob (or zero)
         ofs += 4;
-        let free = get_u16(core, ofs);  // `size` field is the number of free octets in this Blob
+        let free = get_u16(core, ofs); // `size` field is the number of free octets in this Blob
         if need <= free {
             ofs += 4;
             let end = ofs + free;
             let split = free - need;
-            set_u16(core, ofs - 4, split);  // adjust `size` field for Blob splitting
+            set_u16(core, ofs - 4, split); // adjust `size` field for Blob splitting
             ofs += split;
-            core.blob_write(ofs, 0x8A);  // Blob
+            core.blob_write(ofs, 0x8A); // Blob
             ofs += 1;
             set_u16(core, ofs, need - 5);
             ofs += 4;
-            let blob = Any::fix(ofs as isize);  // capture offset to user-managed data
-            // FIXME: consider clearing memory (to `null`) during de-allocation instead...
+            let blob = Any::fix(ofs as isize); // capture offset to user-managed data
+                                               // FIXME: consider clearing memory (to `null`) during de-allocation instead...
             while ofs < end {
-                core.blob_write(ofs, 0);  // fill with zero octets
+                core.blob_write(ofs, 0); // fill with zero octets
                 ofs += 1;
             }
-            let count = get_u16(core, 1);  // get number of Array elements
-            set_u16(core, 1, count + 1);  // add element for new Blob
-            return Ok(blob)
+            let count = get_u16(core, 1); // get number of Array elements
+            set_u16(core, 1, count + 1); // add element for new Blob
+            return Ok(blob);
         }
         ofs = next;
     }
-    Err(E_NO_MEM)  // BLOB memory exhausted
+    Err(E_NO_MEM) // BLOB memory exhausted
 }
 fn blob_release(core: &mut Core, handle: Any) -> Result<(), Error> {
     let pos = (handle.get_fix()? - 5) as usize;
-    let count = get_u16(core, 1);  // get number of Array elements
-    let size = get_u16(core, 5);  // get Array size in octets
+    let count = get_u16(core, 1); // get number of Array elements
+    let size = get_u16(core, 5); // get Array size in octets
     if (pos < 9) || (pos > size + 5) {
         return Err(E_BOUNDS);
     }
-    let mut ofs: usize = 9;  // start after Array header
+    let mut ofs: usize = 9; // start after Array header
     while ofs > 0 {
-        assert_eq!(0x8B, core.blob_read(ofs));  // Extension Blob
-        let next = get_u16(core, ofs + 1);  // `meta` field is offset of next free Blob (or zero)
-        let free = get_u16(core, ofs + 5);  // `size` field is the number of free octets in this Blob
+        assert_eq!(0x8B, core.blob_read(ofs)); // Extension Blob
+        let next = get_u16(core, ofs + 1); // `meta` field is offset of next free Blob (or zero)
+        let free = get_u16(core, ofs + 5); // `size` field is the number of free octets in this Blob
         if pos == (ofs + 9 + free) {
             // allocation immediately follows this free block
-            let len = get_u16(core, pos + 1);  // `size` field is the number of data octets in this Blob
+            let len = get_u16(core, pos + 1); // `size` field is the number of data octets in this Blob
             let free_len = free + len + 5;
             if next == (pos + len + 5) {
                 // coalesce the following free block
@@ -322,14 +283,14 @@ fn blob_release(core: &mut Core, handle: Any) -> Result<(), Error> {
                 set_u16(core, ofs + 5, free_len + next_free + 9);
                 set_u16(core, 1, count - 2);
             } else {
-                set_u16(core, ofs + 5, free_len);  // adjust the size of the preceeding free block
-                set_u16(core, 1, count - 1);  // remove element for free'd Blob
+                set_u16(core, ofs + 5, free_len); // adjust the size of the preceeding free block
+                set_u16(core, 1, count - 1); // remove element for free'd Blob
             }
             return Ok(());
         } else if (next == 0) || (pos < next) {
             // allocation preceeds next free block
-            let len = get_u16(core, pos + 1);  // `size` field is the number of data octets in this Blob
-            core.blob_write(pos, 0x8B);  // Blob -> Extension Blob
+            let len = get_u16(core, pos + 1); // `size` field is the number of data octets in this Blob
+            core.blob_write(pos, 0x8B); // Blob -> Extension Blob
             if next == (pos + len + 5) {
                 // coalesce the following free block
                 let next_next = get_u16(core, next + 1);
@@ -341,7 +302,7 @@ fn blob_release(core: &mut Core, handle: Any) -> Result<(), Error> {
                 set_u16(core, pos + 1, next);
                 set_u16(core, pos + 5, len - 4);
             }
-            set_u16(core, ofs + 1, pos);  // link preceeding block to free'd allocation
+            set_u16(core, ofs + 1, pos); // link preceeding block to free'd allocation
             return Ok(());
         }
         ofs = next;
@@ -419,26 +380,29 @@ impl Device for BlobDevice {
             // request to allocated blob
             let _dev = myself.x();
             let handle = myself.y();
-            let msg = event.y();  // (cust) | (cust ofs) | (cust ofs val)
+            let msg = event.y(); // (cust) | (cust ofs) | (cust ofs val)
             let cust = core.nth(msg, PLUS_1);
             let ofs: Any = core.nth(msg, PLUS_2);
             let val: Any = core.nth(msg, PLUS_3);
-            if ofs == UNDEF {  // size request
+            if ofs == UNDEF {
+                // size request
                 let size = blob_size(core, handle)?;
                 let evt = core.reserve_event(sponsor, cust, size)?;
                 core.event_enqueue(evt);
-            } else if val == UNDEF {  // read request
+            } else if val == UNDEF {
+                // read request
                 let data = blob_read(core, handle, ofs)?;
                 let evt = core.reserve_event(sponsor, cust, data)?;
                 core.event_enqueue(evt);
-            } else {  // write request
+            } else {
+                // write request
                 let unit = blob_write(core, handle, ofs, val)?;
                 let evt = core.reserve_event(sponsor, cust, unit)?;
                 core.event_enqueue(evt);
             }
         } else {
             // request to allocator
-            let msg = event.y();  // (cust size)
+            let msg = event.y(); // (cust size)
             let cust = core.nth(msg, PLUS_1);
             let size = core.nth(msg, PLUS_2);
             let handle = blob_reserve(core, size)?;
@@ -446,7 +410,7 @@ impl Device for BlobDevice {
             let evt = core.reserve_event(sponsor, cust, proxy)?;
             core.event_enqueue(evt);
         }
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
     fn drop_proxy(&mut self, core: &mut Core, proxy: Any) {
         self.log_proxy(proxy);
@@ -474,9 +438,7 @@ impl TimerDevice {
     }
     #[cfg(target_arch = "wasm32")]
     fn stop_timer(&mut self, stub: Any) -> bool {
-        unsafe {
-            crate::host_stop_timer(stub.raw())
-        }
+        unsafe { crate::host_stop_timer(stub.raw()) }
     }
     #[cfg(not(target_arch = "wasm32"))]
     fn stop_timer(&mut self, _stub: Any) -> bool {
@@ -504,7 +466,8 @@ impl Device for TimerDevice {
         } else {
             // start timer request
             let arg_1 = core.nth(msg, PLUS_1);
-            if arg_1.is_fix() {  // simple delayed message
+            if arg_1.is_fix() {
+                // simple delayed message
                 // (delay target message)
                 let delay = arg_1;
                 let target = core.nth(msg, PLUS_2);
@@ -516,7 +479,8 @@ impl Device for TimerDevice {
                 let ptr = core.reserve(&delayed)?;
                 let stub = core.reserve_stub(dev, ptr)?;
                 self.start_timer(delay, stub);
-            } else {  // requestor-style interface
+            } else {
+                // requestor-style interface
                 // (to_cancel callback delay . result)
                 let to_cancel = arg_1;
                 let callback = core.nth(msg, PLUS_2);
@@ -539,7 +503,7 @@ impl Device for TimerDevice {
                 }
             }
         }
-        Ok(())  // event handled.
+        Ok(()) // event handled.
     }
 }
 
@@ -550,9 +514,7 @@ impl HostDevice {
     }
     #[cfg(target_arch = "wasm32")]
     fn to_host(&mut self, event_stub_or_proxy: Any) -> Error {
-        unsafe {
-            crate::host(event_stub_or_proxy.raw())
-        }
+        unsafe { crate::host(event_stub_or_proxy.raw()) }
     }
     #[cfg(not(target_arch = "wasm32"))]
     fn to_host(&mut self, _event_stub_or_proxy: Any) -> Error {

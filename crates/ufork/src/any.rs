@@ -1,6 +1,7 @@
 // Univeral type-tagged scalar value
 
 use crate::*;
+use serde::{Deserialize, Serialize};
 
 // literal values (`Any` type)
 pub const MINUS_5: Any      = Any { raw: DIR_RAW | -5i32 as Raw };
@@ -130,7 +131,7 @@ pub const SPONSOR_START: Any = Any { raw: DIR_RAW | 5 };
 pub const SPONSOR_STOP: Any = Any { raw: DIR_RAW | 6 };
 
 // type-tagged value
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Any {
     //raw: Raw,
     pub raw: Raw, // FIXME: THIS FIELD SHOULD BE PRIVATE!

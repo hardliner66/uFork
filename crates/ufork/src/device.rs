@@ -97,7 +97,7 @@ impl IoDevice {
     #[cfg(target_arch = "wasm32")]
     fn dump_blob(&mut self, base: *const u8, ofs: usize) {
         unsafe {
-            crate::host_print(base, ofs);
+            // crate::host_print(base, ofs);
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -109,8 +109,9 @@ impl IoDevice {
     #[cfg(target_arch = "wasm32")]
     fn write(&mut self, code: Any) -> Any {
         unsafe {
-            let raw = crate::host_write(code.raw());
-            Any::new(raw)
+            // let raw = crate::host_write(code.raw());
+            // Any::new(raw)
+            Any::new(0)
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -123,8 +124,9 @@ impl IoDevice {
     #[cfg(target_arch = "wasm32")]
     fn read(&mut self, stub: Any) -> Any {
         unsafe {
-            let raw = crate::host_read(stub.raw());
-            Any::new(raw)
+            // let raw = crate::host_read(stub.raw());
+            // Any::new(raw)
+            Any::new(0)
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -358,7 +360,7 @@ impl BlobDevice {
     fn log_proxy(&mut self, proxy: Any) {
         let raw = proxy.raw();
         unsafe {
-            crate::host_log(raw);
+            // crate::host_log(raw);
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -429,7 +431,7 @@ impl TimerDevice {
     #[cfg(target_arch = "wasm32")]
     fn start_timer(&mut self, delay: Any, stub: Any) {
         unsafe {
-            crate::host_start_timer(delay.raw(), stub.raw());
+            // crate::host_start_timer(delay.raw(), stub.raw());
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -438,7 +440,8 @@ impl TimerDevice {
     }
     #[cfg(target_arch = "wasm32")]
     fn stop_timer(&mut self, stub: Any) -> bool {
-        unsafe { crate::host_stop_timer(stub.raw()) }
+        // unsafe { crate::host_stop_timer(stub.raw()) }
+        true
     }
     #[cfg(not(target_arch = "wasm32"))]
     fn stop_timer(&mut self, _stub: Any) -> bool {
@@ -514,7 +517,8 @@ impl HostDevice {
     }
     #[cfg(target_arch = "wasm32")]
     fn to_host(&mut self, event_stub_or_proxy: Any) -> Error {
-        unsafe { crate::host(event_stub_or_proxy.raw()) }
+        // unsafe { crate::host(event_stub_or_proxy.raw()) }
+        E_OK
     }
     #[cfg(not(target_arch = "wasm32"))]
     fn to_host(&mut self, _event_stub_or_proxy: Any) -> Error {

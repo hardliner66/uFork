@@ -202,6 +202,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 
 [[package]]
+name = "asm"
+version = "0.1.0"
+
+[[package]]
 name = "async-broadcast"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -849,10 +853,17 @@ dependencies = [
 name = "debug-ui"
 version = "0.1.0"
 dependencies = [
+ "egui_logger",
  "egui_quad_editor",
  "egui_tracing",
+ "getrandom",
  "log",
+ "lol_alloc",
  "notan",
+ "rand",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
  "ufork",
 ]
 
@@ -1025,6 +1036,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_logger"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053673097352d1ba23ee4b1676bbbdd0b9a695a962f3dcb9f9e9d43d1f0e16bf"
+dependencies = [
+ "egui 0.22.0",
+ "log",
+ "once_cell",
+ "regex",
+]
+
+[[package]]
 name = "egui_quad_editor"
 version = "0.2.6"
 dependencies = [
@@ -1045,7 +1068,6 @@ dependencies = [
  "serde",
  "serde_with",
  "tracing",
- "tracing-log",
  "tracing-subscriber",
  "unicode-segmentation",
 ]
@@ -3363,18 +3385,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0955b8137a1df6f1a2e9a37d8a6656291ff0297c1a97c24e0d8425fe2312f79a"
 dependencies = [
  "once_cell",
- "valuable",
-]
-
-[[package]]
-name = "tracing-log"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ddad33d2d10b1ed7eb9d1f518a5674713876e97e5bb9b7345a7984fbb4f922"
-dependencies = [
- "lazy_static",
- "log",
- "tracing-core",
 ]
 
 [[package]]
@@ -3386,7 +3396,6 @@ dependencies = [
  "sharded-slab",
  "thread_local",
  "tracing-core",
- "tracing-log",
 ]
 
 [[package]]
@@ -3425,6 +3434,9 @@ dependencies = [
 [[package]]
 name = "ufork"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ufork-wasm"
@@ -3480,12 +3492,6 @@ dependencies = [
  "idna",
  "percent-encoding",
 ]
-
-[[package]]
-name = "valuable"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
 name = "vec_map"

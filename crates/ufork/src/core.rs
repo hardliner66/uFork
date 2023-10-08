@@ -1,7 +1,9 @@
 // uFork virtual CPU core
 
 extern crate alloc;
-use alloc::boxed::Box;
+use alloc::{boxed::Box, vec::Vec};
+
+use serde::{Deserialize, Serialize};
 
 use crate::device::*;
 use crate::*;
@@ -56,15 +58,37 @@ const BLOB_RAM_MAX: usize = 1 << 8; // 256 octets of Blob RAM (for testing)
 const DEVICE_MAX: usize = 8; // number of Core devices
 
 pub struct Core {
-    quad_rom: [Quad; QUAD_ROM_MAX],
-    quad_ram: [Quad; QUAD_RAM_MAX],
-    gc_queue: [Any; QUAD_RAM_MAX],
-    blob_ram: [u8; BLOB_RAM_MAX],
-    device: [Option<Box<dyn Device>>; DEVICE_MAX],
-    rom_top: Any,
-    gc_state: Any,
+    pub quad_rom: [Quad; QUAD_ROM_MAX],
+    pub quad_ram: [Quad; QUAD_RAM_MAX],
+    pub gc_queue: [Any; QUAD_RAM_MAX],
+    pub blob_ram: [u8; BLOB_RAM_MAX],
+    pub rom_top: Any,
+    pub gc_state: Any,
 
+    device: [Option<Box<dyn Device>>; DEVICE_MAX],
     trace_event: Box<dyn Fn(Any, Any)>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct QuadRom {
+    pub quad_rom: Vec<Quad>,
+    pub rom_top: Any,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct QuadRam(pub Vec<Quad>);
+
+
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct BlobRam(pub Vec<u8>);
+
+
+#[derive(Serialize, Deserialize)]
+pub struct GcQueue {
+    pub gc_queue: Vec<Any>,
+    pub gc_state: Any,
 }
 
 impl Default for Core {
@@ -184,6 +208,9 @@ impl Core {
         }
     }
 
+    pub fn set_trace_event(&mut self, trace_event: Box<dyn Fn(Any, Any)>) {
+        self.trace_event = trace_event;
+    }
     /*
 
     The run-loop is the main entry-point for a host to run the uFork processor.
@@ -2612,13 +2639,13 @@ mod tests {
     #[test]
     fn recover_from_resource_exhaustion() {
         const OUT_OF_MEM: Any = Any {
-            raw: DIR_RAW | E_MEM_LIM as u32,
+            raw: DIR_RAW | E_MEM_LIM as Raw,
         };
         const OUT_OF_MSG: Any = Any {
-            raw: DIR_RAW | E_MSG_LIM as u32,
+            raw: DIR_RAW | E_MSG_LIM as Raw,
         };
         const OUT_OF_CPU: Any = Any {
-            raw: DIR_RAW | E_CPU_LIM as u32,
+            raw: DIR_RAW | E_CPU_LIM as Raw,
         };
         let mut core = Core::default();
         let boot_beh = load_fib_test(&mut core);

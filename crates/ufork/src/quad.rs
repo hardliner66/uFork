@@ -1,8 +1,9 @@
 // A set of 4 named `Any` values (minimum addressable unit of memory)
 
 use crate::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 // quad-cell (minimum addressable unit)
 pub struct Quad {
     t: Any,

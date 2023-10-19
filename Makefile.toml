@@ -1,0 +1,60 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[tasks.wasm]
+env = { CARGO_BUILD_TARGET = "wasm32-unknown-unknown" }
+command = "cargo"
+args = ["build", "-p", "ufork-wasm"]
+
+[tasks.wasm-release]
+env = { CARGO_BUILD_TARGET = "wasm32-unknown-unknown" }
+command = "cargo"
+args = ["build", "-p", "ufork-wasm", "--release"]
+
+[tasks.wasm-all]
+run_task = { name = ["wasm", "wasm-release"], parallel = true }
+
+[tasks.dist]
+dependencies = ["wasm-all"]
+script_runner = "@shell"
+script = '''
+mkdir -p dist
+cp -r www/* dist/
+cp target/wasm32-unknown-unknown/debug/ufork_wasm.wasm dist/ufork.wasm
+cp target/wasm32-unknown-unknown/release/ufork_wasm.wasm dist/ufork.opt.wasm
+cp -r crates/ufork-compiler/scm dist/
+cp -r crates/ufork-compiler/asm dist/
+'''
+
+[tasks.serve]
+dependencies = ["dist"]
+command = "cargo"
+args = ["server", "--path", "dist"]
+
+[tasks.clean-rust]
+command = "cargo"
+args = ["clean", "-r"]
+
+[tasks.clean-dist]
+script_runner = "@shell"
+script = '''
+rm -rf dist
+'''
+
+[tasks.clean]
+dependencies = ["clean-rust", "clean-dist"]
+
+[tasks.test-rust]
+command = "cargo"
+args = ["test", "-p", "ufork", "--lib"]
+
+[tasks.test-asm]
+command = "deno"
+args = ["run", "--allow-read=.", "crates/ufork-wasm/run_asm_tests.js", "examples", "../ufork-compiler/asm"]
+
+# [tasks.test]
+# run_task = { name = ["test-rust", "test-asm"]}
+
+[tasks.test]
+run_task = { name = ["test-rust"]}
